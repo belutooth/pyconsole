@@ -1,6 +1,0 @@
-#summary One-sentence summary of this page.
-#labels Featured
-
-PyConsole for win32 platform
-
-As presented at EuroPython 2007
