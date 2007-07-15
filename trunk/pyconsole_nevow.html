@@ -1,0 +1,42 @@
+<!-- Copyright (C) 2007 Michael Graz -->
+
+<div id="pyconsole_nevow"
+    xmlns:nevow="http://nevow.com/ns/nevow/0.1"
+    xmlns:athena="http://divmod.org/ns/athena/0.7"
+    nevow:render="liveFragment">
+
+<ul id="cp_cloud">
+<li><a href="" onclick="return send('dir')">dir</a></li>
+<li><a href="" onclick="return send('hostname')">hostname</a></li>
+<li><a href="" onclick="return send('pslist')">pslist</a></li>
+<li><a href="" onclick="return send('time/t')">time/t</a></li>
+</ul>
+
+<div id="console" valign="top">
+    <div id="cp_output"/>
+    <input id="cp_input" type="text"/>
+</div>
+
+<script language="javascript">
+
+function cp_input_onkeypress(e){
+    if (!e) e = window.event;
+    if (e.keyCode!=13)
+        return;
+    send (cp_input.value);
+    cp_input.value = '';
+}
+
+var cp_input = document.getElementById('cp_input');
+cp_input.onkeypress = cp_input_onkeypress;
+
+function send(text){
+    var cp_input = document.getElementById('cp_input');
+    var widget = Nevow.Athena.Widget.get(cp_input);
+    widget.callRemote('cp_input', text);
+    return false;
+}
+
+</script>
+
+</div>

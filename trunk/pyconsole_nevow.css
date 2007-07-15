@@ -1,0 +1,42 @@
+/* Copyright (C) 2007 Michael Graz */
+
+#cp_cloud {
+    position: fixed;
+    width: 85px;
+    border-style: solid;
+    border-width: 1px;
+    padding-left: 0px;
+}
+
+#console {
+    position: absolute;
+    left: 100px;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 14px;
+    border-left: thin solid;
+    padding-left: 5px;
+}
+
+#cp_input {
+    width: 600px;
+}
+
+#cp_cloud li {
+    list-style-type: none;
+    margin: 1px;
+    padding: 2px;
+}
+
+#cp_cloud a, #cp_cloud a:visited {
+    display: block;
+    text-decoration: none;
+    background: #f1e0b1;
+    color: black;
+}
+
+#cp_cloud a:hover {
+    background: #327621;
+    color: #f1e0b1;
+}
+
