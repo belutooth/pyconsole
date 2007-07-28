@@ -19,24 +19,29 @@ import os, sys, time, mmap, struct, ctypes, ctypes.wintypes, logging, tempfile, 
 import win32api, win32con, win32event, win32process, win32console
 user32 = ctypes.windll.user32
 
+_debug = False
+if _debug:
+    _logging_level = logging.DEBUG
+else:
+    _logging_level = logging.WARNING
+
 def is_child ():
     return len(sys.argv) >= 4 and sys.argv[1] == '__child__'
 
-_debug = True
-if _debug:
-    # Note: if this module is imported then the logging may be
-    # started from a different module with different parameters
-    if is_child():
-        filename_log = 'pyconsole_child.log'
-    else:
-        filename_log = 'pyconsole_parent.log'
-    directory_log = tempfile.gettempdir()
-    logging.basicConfig (level=logging.INFO,
-        format='%(asctime)s %(levelname)-8s %(message)s\n -- %(pathname)s(%(lineno)d)',
-        datefmt='%H:%M:%S',
-        filename=os.path.join (directory_log, filename_log),
-        filemode='w')
-    logging.info ('starting')
+# Note: if this module is imported then the logging may be
+# started from a different module with different parameters
+# TODO how to avoid zero length log files when not debugging
+if is_child():
+    _filename_log = 'pyconsole_child.log'
+else:
+    _filename_log = 'pyconsole_parent.log'
+_directory_log = tempfile.gettempdir()
+logging.basicConfig (level=_logging_level,
+    format='%(asctime)s %(levelname)-8s %(message)s\n -- %(pathname)s(%(lineno)d)',
+    datefmt='%H:%M:%S',
+    filename=os.path.join (_directory_log, _filename_log),
+    filemode='w')
+logging.info ('starting')
 
 #----------------------------------------------------------------------
 
@@ -68,12 +73,12 @@ class ConsoleProcess (_ConsoleProcessBase):
     def __init__ (self, cmd_line, console_update=None, console_update_many=None,
             console_process_end=None, echo=None):
         try:
-            _ConsoleProcessBase.__init__ (self, os.getpid())
             self.console_update = console_update
             self.console_update_many = console_update_many
             if not self.console_update and not self.console_update_many:
                 raise Exception ('need to pass console_update or console_update_many')
             self.console_process_end = console_process_end
+            _ConsoleProcessBase.__init__ (self, os.getpid())
             if echo in [True, False]:
                 os.environ['pyconsole_echo'] = str(echo)
             self.console_process_handle = None
@@ -82,24 +87,24 @@ class ConsoleProcess (_ConsoleProcessBase):
             self._start_remote_output ()
             self._start_console_process (cmd_line)
             self._start_console_monitor ()
-        except:
+        except Exception, e:
             logging.exception ('fatal error')
+            self.status_message ('ERROR %s' % e)
 
     def _start_console_process (self, cmd_line):
-        if sys.executable.lower().endswith('python.exe'):
-            python_exe = sys.executable
-        else:
-            # when run under gvim the executable is gvim.exe
-            python_exe = 'python.exe'
-        cmd_line = '%s %s __child__ %s %s' % (python_exe, get_this_file(), os.getpid(), cmd_line, )
+        cmd_line = '%s "%s" __child__ %s %s' % (get_python_exe(), get_this_file(), os.getpid(), cmd_line, )
+        logging.info ('child cmd_line: %s' % (cmd_line, ))
         flags = win32process.NORMAL_PRIORITY_CLASS
         si = win32process.STARTUPINFO()
         si.dwFlags |= win32con.STARTF_USESHOWWINDOW
         # uncomment the following to allocated console visible
         si.wShowWindow = win32con.SW_HIDE
         # si.wShowWindow = win32con.SW_MINIMIZE
-        tpl_result = win32process.CreateProcess (None, cmd_line, None, None, 0,
-            flags, None, '.', si)
+        try:
+            tpl_result = win32process.CreateProcess (None, cmd_line, None, None, 0, flags, None, '.', si)
+        except:
+            self.status_message ('COULD NOT START %s' % cmd_line)
+            raise
         self.console_process_handle = tpl_result [0]
 
     def _start_remote_output (self):
@@ -152,16 +157,20 @@ class ConsoleProcess (_ConsoleProcessBase):
         if not self.console_process_handle:
             return
         win32event.WaitForSingleObject (self.console_process_handle, win32event.INFINITE)
+        self.status_message ('ENDED')
+        if self.console_process_end:
+            self.console_process_end ()
+
+    def status_message (self, text):
+        text = 'CONSOLE PROCESS %s' % text
         msg_type = 88
-        x, y = 0, self.y_last+1
-        text = 'CONSOLE PROCESS ENDED'
+        self.y_last += 1
+        x, y = 0, self.y_last
         text_len = len(text)
         if self.console_update_many:
             self.console_update_many ([(msg_type, x, y, text_len, text, )])
-        else:
+        elif self.console_update:
             self.console_update (x, y, text)
-        if self.console_process_end:
-            self.console_process_end ()
 
 #----------------------------------------------------------------------
 
@@ -491,6 +500,20 @@ def get_this_file ():
     try: fn = __file__
     except: fn = sys.argv[0]
     return os.path.abspath (fn)
+
+def get_python_exe ():
+    exe = os.path.basename(sys.executable).lower()
+    if exe in ['python.exe', 'pythonw.exe']:
+        return exe
+    # when run under gvim the executable is gvim.exe
+    python_exe = 'python.exe'
+    key = "SOFTWARE\\Python\\PythonCore\\%s\\InstallPath" % sys.winver
+    try:
+        value = win32api.RegQueryValue (win32con.HKEY_LOCAL_MACHINE, key)
+        return os.path.join (value, python_exe)
+    except win32api.error:
+        pass
+    return python_exe
 
 def make_input_key (c, control_key_state=None):
     input_key = win32console.PyINPUT_RECORDType (win32console.KEY_EVENT)
