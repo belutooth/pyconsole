@@ -36,7 +36,6 @@ endfunction
 
 function! PyConsole()
     " create a new buffer if this is an active buffer
-    echo 'xx len: '.len(bufname(winbufnr(winnr()))).' modified: '.&modified
     if &modified == 1 || len(bufname(winbufnr(winnr()))) > 0
         new
     endif
